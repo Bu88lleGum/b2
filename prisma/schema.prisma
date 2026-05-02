@@ -1,0 +1,96 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  CLIENT
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  login     String?  
+  password  String
+  role      Role     @default(CLIENT)
+  avatarUrl String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@map("users")
+}
+
+model WaterBody {
+  id          String               @id @default(uuid())
+  name        String               @unique
+  type        String?
+  location    String?
+  latitude    Float?               
+  longitude   Float?               
+  description String?             
+  passport    WaterBodyPassport?   
+  records     BioindicationRecord[] 
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  @@map("water_bodies")
+}
+
+model WaterBodyPassport {
+  id              String    @id @default(uuid())
+  waterBodyId     String    @unique
+  area            Float?
+  volume          Float?
+  maxDepth        Float?
+  avgDepth        Float?
+  length          Float?
+  maxWidth        Float?
+  fishType        String?   
+  fauna           String?   
+  mammals         String?   
+  invertebrates   String?   
+  waterBody       WaterBody @relation(fields: [waterBodyId], references: [id], onDelete: Cascade)
+  @@map("water_body_passports")
+}
+
+model BioindicationRecord {
+  id          String   @id @default(uuid())
+  waterBodyId String
+  waterBody   WaterBody @relation(fields: [waterBodyId], references: [id], onDelete: Cascade)
+  
+  parameter   String   @default("Комплексный замер")
+  value       Float    @default(0)
+  recordDate  DateTime @default(now())
+
+  ph                Float?
+  turbidity         Float?
+  mineralization    Float?
+  salinity          Float?
+  hardness          Float?
+  trophicStatus     String?
+
+  dissolvedGases    String?
+  biogenicCompounds String?
+  permanganateOxid  Float?
+  calcium           Float?
+  magnesium         Float?
+  chlorides         Float?
+  sulfates          Float?
+  hydrocarbonates   Float?
+  potassiumSodium   Float?
+  overgrowthPercent Float?
+  overgrowthDegree  String?
+  phytoplanktonDevelopment String?
+  zooplanktonTaxa   String?
+  zooplanktonGroups String?
+  zoobenthosTaxa    String?
+  zoobenthosGroups  String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  @@map("bioindication_records")
+}
