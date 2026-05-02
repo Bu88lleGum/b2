@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateWaterBodyDto, UpdateWaterBodyDto } from './dto/water-body.dto';
 import { CreateMeasurementDto } from './dto/measurement.dto';
+import { Prisma, WaterBody } from '@prisma/client';
 
 @Injectable()
 export class WaterBodiesService {
