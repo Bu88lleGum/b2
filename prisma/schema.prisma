@@ -3,7 +3,6 @@
 
 generator client {
   provider     = "prisma-client-js"
-  output       = "../src/generated/prisma"
   moduleFormat = "cjs"
 }
 
@@ -29,13 +28,16 @@ model User {
 
 model WaterBody {
   id             String  @id @default(uuid())
-  name           String  // Наименование водоема
+  name           String @unique // Наименование водоема
   district       String? // Район
   locationDesc   String? @map("location_desc") // Расположение
-  
+  type  String? // Добавь это поле, если оно нужно
+  location     String?  // Добавь эту строку
   latitude       Float?
   longitude      Float?
   boundaries     Json?
+  description     String?  // Добавь эту строку
+
   
   cadastralNumber String? @map("cadastral_number") // Кадастровый номер
   
