@@ -1,30 +1,23 @@
-import { Module, NestModule, MiddlewareConsumer, RequestMethod } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { CatsModule } from './cats/cats.module';
-import { DogsModule } from './dogs/dogs.module'; 
-import { LoggerMiddleware } from './common/middlewares/logger.middleware';
-import { ResponseLoggedMiddleware } from './common/middlewares/responselogged.middleware';
+import { PrismaService } from './prisma/prisma.service';
 import { PrismaModule } from './prisma/prisma.module';
-import { WaterBodiesModule } from './water-bodies/water-bodies.module';
-import { AuthModule } from './auth/auth.module';
+import { ConfigModule } from '@nestjs/config';
 import { UsersModule } from './users/users.module';
+import { AuthModule } from './auth/auth.module';
+import { WaterBodiesModule } from './water-bodies/water-bodies.module';
 
 @Module({
-  imports: [CatsModule, DogsModule, PrismaModule, WaterBodiesModule, AuthModule, UsersModule], 
+  imports: [
+    // Глобальный модуль конфигурации для работы с .env
+    ConfigModule.forRoot({ isGlobal: true }),
+    PrismaModule,
+    UsersModule,
+    AuthModule,
+    WaterBodiesModule,
+  ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, PrismaService],
 })
-export class AppModule implements NestModule {
-  configure(consumer: MiddlewareConsumer) {
-    consumer
-      .apply(LoggerMiddleware, ResponseLoggedMiddleware)
-      .exclude(
-        { path: 'cats/breed', method: RequestMethod.GET } 
-      )
-      .forRoutes(
-        { path: 'cats/*', method: RequestMethod.ALL },
-        { path: 'dogs/*', method: RequestMethod.ALL }
-      );
-  }
-}
+export class AppModule {}

@@ -1,111 +1,150 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { CreateWaterBodyDto, UpdateWaterBodyDto } from './dto/water-body.dto';
+import { CreateMeasurementDto } from './dto/measurement.dto';
 
 @Injectable()
 export class WaterBodiesService {
   constructor(private prisma: PrismaService) {}
 
-  findAll() {
+  // 1. Получение всех водоемов со связанными данными
+  async findAll() {
     return this.prisma.waterBody.findMany({
-      include: { records: true, passport: true },
-    });
-  }
-
-  findOne(id: string) {
-    return this.prisma.waterBody.findUnique({
-      where: { id },
-      include: { records: true, passport: true },
-    });
-  }
-
-  create(dto: any) {
-    return this.prisma.waterBody.create({
-      data: {
-        name: dto.name,
-        type: dto.type,
-        location: dto.location || dto.district, 
-        latitude: parseFloat(dto.latitude),    
-        longitude: parseFloat(dto.longitude),  
-        description: dto.description,
+      include: {
+        passport: true,
+        measurements: true,
       },
     });
   }
 
-  update(id: string, dto: any) {
+  // 2. Получение одного водоема с сортировкой замеров по дате (desc)
+  async findOne(id: string) {
+    const waterBody = await this.prisma.waterBody.findUnique({
+      where: { id },
+      include: {
+        passport: true,
+        measurements: {
+          orderBy: { recordDate: 'desc' },
+        },
+      },
+    });
+
+    if (!waterBody) {
+      throw new NotFoundException(`Водоем с ID ${id} не найден`);
+    }
+
+    return waterBody;
+  }
+
+  // 3. Создание водоема и связанного паспорта
+  async create(data: CreateWaterBodyDto) {
+    const { passport, ...waterBodyData } = data;
+
+    return this.prisma.waterBody.create({
+      data: {
+        ...waterBodyData,
+        passport: passport ? { create: passport } : undefined,
+      },
+      include: {
+        passport: true,
+        measurements: true,
+      },
+    });
+  }
+
+  // 4. Обновление водоема с механизмом upsert для паспорта
+  async update(id: string, data: UpdateWaterBodyDto) {
+    const { passport, ...waterBodyData } = data;
+
     return this.prisma.waterBody.update({
       where: { id },
       data: {
-        name: dto.name,
-        type: dto.type,
-        location: dto.location || dto.district,
-        latitude: parseFloat(dto.latitude),
-        longitude: parseFloat(dto.longitude),
-        description: dto.description,
+        ...waterBodyData,
+        passport: passport ? {
+          upsert: {
+            create: passport,
+            update: passport,
+          }
+        } : undefined,
+      },
+      include: {
+        passport: true,
       },
     });
   }
 
-  remove(id: string) {
-    return this.prisma.waterBody.delete({ where: { id } });
-  }
-
-  upsertPassport(waterBodyId: string, dto: any) {
-    return this.prisma.waterBodyPassport.upsert({
-      where: { waterBodyId },
-      update: dto,
-      create: { ...dto, waterBodyId },
+  // 5. Удаление водоема
+  async remove(id: string) {
+    return this.prisma.waterBody.delete({
+      where: { id },
     });
   }
 
-  async createMeasurement(waterBodyId: string, dto: any) {
-    let formattedDate = new Date();
-    if (dto.recordDate) {
-      const dateParts = dto.recordDate.split('.');
-      if (dateParts.length === 3) {
-        formattedDate = new Date(`${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`);
-      } else {
-        formattedDate = new Date(dto.recordDate);
-      }
-    }
-
-    if (isNaN(formattedDate.getTime())) {
-      formattedDate = new Date();
-    }
-
-    const dataToSave: any = {
-      waterBodyId: waterBodyId,
-      recordDate: formattedDate,
-      parameter: 'Комплексный замер',
-      value: 0,                       
-    };
-
-    Object.keys(dto).forEach((key) => {
-      if (key !== 'recordDate' && dto[key] !== '' && dto[key] !== null) {
-        const parsedVal = parseFloat(dto[key]);
-        dataToSave[key] = isNaN(parsedVal) ? dto[key] : parsedVal;
-      }
+  // 6. Добавление замера к конкретному водоему
+  async addMeasurement(waterBodyId: string, data: CreateMeasurementDto) {
+    // Проверяем, существует ли водоем
+    const waterBody = await this.prisma.waterBody.findUnique({ 
+      where: { id: waterBodyId } 
     });
+    
+    if (!waterBody) {
+      throw new NotFoundException(`Водоем с ID ${waterBodyId} не найден`);
+    }
 
     return this.prisma.bioindicationRecord.create({
-      data: dataToSave,
+      data: {
+        ...data,
+        waterBodyId,
+      },
     });
   }
 
-  async findMeasurements(waterBodyId: string) {
+  // 7. Получение всех замеров водоема (сортировка desc)
+  async getMeasurements(waterBodyId: string) {
     return this.prisma.bioindicationRecord.findMany({
       where: { waterBodyId },
       orderBy: { recordDate: 'desc' },
     });
   }
 
-  updateMeasurement(id: string, dto: any) {
+  // 8. Обновление конкретного замера с проверкой принадлежности
+  async updateMeasurement(
+    waterBodyId: string,
+    measurementId: string,
+    data: CreateMeasurementDto,
+  ) {
+    const measurement = await this.prisma.bioindicationRecord.findFirst({
+      where: {
+        id: measurementId,
+        waterBodyId,
+      },
+    });
+
+    if (!measurement) {
+      throw new NotFoundException(`Замер с ID ${measurementId} не найден`);
+    }
+
     return this.prisma.bioindicationRecord.update({
-      where: { id },
-      data: dto,
+      where: { id: measurementId },
+      data,
     });
   }
 
-  removeMeasurement(id: string) {
-    return this.prisma.bioindicationRecord.delete({ where: { id } });
+  // 9. Удаление замера с проверкой принадлежности
+  async removeMeasurement(waterBodyId: string, measurementId: string) {
+    const measurement = await this.prisma.bioindicationRecord.findFirst({
+      where: {
+        id: measurementId,
+        waterBodyId,
+      },
+    });
+
+    if (!measurement) {
+      throw new NotFoundException(`Замер с ID ${measurementId} не найден`);
+    }
+
+    return this.prisma.bioindicationRecord.delete({
+      where: { id: measurementId },
+    });
   }
 }

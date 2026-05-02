@@ -1,6 +1,9 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider     = "prisma-client-js"
+  output       = "../src/generated/prisma"
   moduleFormat = "cjs"
 }
 
@@ -14,83 +17,104 @@ enum Role {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  login     String?  
+  id        String  @id @default(uuid())
+  login String @unique
+  email     String  @unique
   password  String
-  role      Role     @default(CLIENT)
-  avatarUrl String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  avatarUrl String? @map("avatar_url")
+  role      Role    @default(CLIENT)
+
   @@map("users")
 }
 
 model WaterBody {
-  id          String               @id @default(uuid())
-  name        String               @unique
-  type        String?
-  location    String?
-  latitude    Float?               
-  longitude   Float?               
-  description String?             
-  passport    WaterBodyPassport?   
-  records     BioindicationRecord[] 
-  createdAt   DateTime             @default(now())
-  updatedAt   DateTime             @updatedAt
+  id             String  @id @default(uuid())
+  name           String  // Наименование водоема
+  district       String? // Район
+  locationDesc   String? @map("location_desc") // Расположение
+  
+  latitude       Float?
+  longitude      Float?
+  boundaries     Json?
+  
+  cadastralNumber String? @map("cadastral_number") // Кадастровый номер
+  
+  passport       WaterBodyPassport?
+  measurements   BioindicationRecord[]
+
   @@map("water_bodies")
 }
 
 model WaterBodyPassport {
-  id              String    @id @default(uuid())
-  waterBodyId     String    @unique
-  area            Float?
-  volume          Float?
-  maxDepth        Float?
-  avgDepth        Float?
-  length          Float?
-  maxWidth        Float?
-  fishType        String?   
-  fauna           String?   
-  mammals         String?   
-  invertebrates   String?   
-  waterBody       WaterBody @relation(fields: [waterBodyId], references: [id], onDelete: Cascade)
+  id           String    @id @default(uuid())
+  waterBodyId  String    @unique @map("water_body_id")
+  waterBody    WaterBody @relation(fields: [waterBodyId], references: [id], onDelete: Cascade)
+
+  // Морфометрические характеристики
+  area             Float? @map("area_ha")            // Площадь, га
+  overgrowthArea   Float? @map("overgrowth_area_ha") // Площадь зарастания, га
+  altitude         Float? @map("altitude_m")         // Высота над уровнем моря, м
+  length           Float? @map("length_km")           // Длина, км
+  maxWidth         Float? @map("max_width_km")        // Наибольшая ширина, км
+  coastlineLength  Float? @map("coastline_length_km") // Длина береговой линии, км
+  coastlineDev     Float? @map("coastline_development") // Развитие береговой линии
+  catchmentArea    Float? @map("catchment_area_sq_km") // Водосборная площадь, кв. км
+  currentDepth     Float? @map("current_depth_m")      // Глубина, м
+  maxDepth         Float? @map("max_depth_m")          // Максимальная глубина, м
+  avgDepth         Float? @map("avg_depth_m")          // Средняя глубина, м
+  volume           Float? @map("volume_mln_m3")        // Объем водной массы, млн. м3
+
+  // Основные гидрологические и хозяйственные характеристики
+  fisheryType          String? @map("fishery_type")      // Вид рыбного хозяйства
+  fishProductivity     Float?  @map("fish_productivity") // Рыбопродуктивность водоема, кг/га
+  economicDesc         String? @db.Text @map("economic_desc") // Хозяйственная характеристика
+  waterProtectionZone  String? @map("water_protection_zone") // Водоохранные зоны
+  waterProtectionStrip String? @map("water_protection_strip") // Водоохранные полосы
+
+  // Видовой состав фауны (общий/исторический)
+  ichthyofauna String? @db.Text // Ихтиофауна
+  mammals      String? @db.Text // Млекопитающие
+  invertebrates String? @db.Text // Беспозвоночные водные животные
+
   @@map("water_body_passports")
 }
 
 model BioindicationRecord {
-  id          String   @id @default(uuid())
-  waterBodyId String
+  id          String    @id @default(uuid())
+  waterBodyId String    @map("water_body_id")
   waterBody   WaterBody @relation(fields: [waterBodyId], references: [id], onDelete: Cascade)
-  
-  parameter   String   @default("Комплексный замер")
-  value       Float    @default(0)
-  recordDate  DateTime @default(now())
 
-  ph                Float?
-  turbidity         Float?
-  mineralization    Float?
-  salinity          Float?
-  hardness          Float?
-  trophicStatus     String?
+  recordDate  DateTime @default(now()) @map("record_date") // Дата забора
 
-  dissolvedGases    String?
-  biogenicCompounds String?
-  permanganateOxid  Float?
-  calcium           Float?
-  magnesium         Float?
-  chlorides         Float?
-  sulfates          Float?
-  hydrocarbonates   Float?
-  potassiumSodium   Float?
-  overgrowthPercent Float?
-  overgrowthDegree  String?
-  phytoplanktonDevelopment String?
-  zooplanktonTaxa   String?
-  zooplanktonGroups String?
-  zoobenthosTaxa    String?
-  zoobenthosGroups  String?
+  // Химические показатели
+  ph               Float?
+  turbidity        Float?
+  dissolvedGases   String? @map("dissolved_gases")    // Растворенные газы, мг/дм3
+  biogenicCompounds String? @map("biogenic_compounds") // Биогенные соединения, мг/дм3
+  permanganateOxid Float? @map("permanganate_oxid")   // Перманганатная окисляемость, мг/дм3
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  // Ионный состав и минерализация воды
+  mineralization Float? // Минерализация, мг/дм3
+  salinity       Float? // Соленость
+  hardness       Float? // Жесткость, мг-экв./дм3
+  calcium        Float? // Кальций, мг/дм3
+  magnesium      Float? // Магний, мг/дм3
+  chlorides      Float? // Хлорид, мг/дм3
+  sulfates       Float? // Сульфаты, мг/дм3
+  hydrocarbonates Float? // Гидрокарбонаты, мг/дм3
+  potassiumSodium Float? @map("potassium_sodium") // Калий + Натрий, мг/дм3
+
+  // Характер и степень зарастания
+  overgrowthPercent Float?  @map("overgrowth_percent") // Процент зарастаемости, %
+  overgrowthDegree  String? @map("overgrowth_degree")  // Степень зарастания
+
+  // Биология и планктон
+  phytoplanktonDev String? @map("phytoplankton_dev") // Степень развития фитопланктона
+  zooplanktonTaxa  String? @db.Text @map("zooplankton_taxa") // Таксономический состав зоопланктона
+  zooplanktonGroups String? @db.Text @map("zooplankton_groups") // Основные группы зоопланктона
+  zoobenthosTaxa   String? @db.Text @map("zoobenthos_taxa")   // Таксономический состав зообентоса
+  zoobenthosGroups String? @db.Text @map("zoobenthos_groups") // Основные группы зообентоса
+  trophicStatus    String? @map("trophic_status")     // Оценка трофности водоемов по биому
+
   @@map("bioindication_records")
 }

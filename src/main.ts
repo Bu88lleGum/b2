@@ -5,20 +5,20 @@ import { ValidationPipe } from '@nestjs/common';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  );
-
+  // Включаем CORS
   app.enableCors({
-    origin: true, 
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    origin: '*',
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
   });
 
-  await app.listen(process.env.PORT || 8001);
+  // Включаем глобальную валидацию
+  app.useGlobalPipes(new ValidationPipe({
+    whitelist: true, // Автоматически удаляет поля, которых нет в DTO
+    forbidNonWhitelisted: true, // Выдает ошибку, если прислали лишние поля
+    transform: true, // Автоматически преобразует типы (например, строку "1" в число 1)
+  }));
+
+  await app.listen(8000);
 }
 bootstrap();
