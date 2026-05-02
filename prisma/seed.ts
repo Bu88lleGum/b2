@@ -1,7 +1,12 @@
 import { PrismaClient } from '@prisma/client'
 import * as bcrypt from 'bcrypt'
+import * as dotenv from 'dotenv' // 1. Импортируйте dotenv
 
-const prisma = new PrismaClient()
+dotenv.config();
+
+// 2. Инициализируем клиент без параметров (он сам возьмет DATABASE_URL из process.env)
+const prisma = new PrismaClient();
+
 
 async function main() {
   const hashedPassword = await bcrypt.hash('admin123', 10)

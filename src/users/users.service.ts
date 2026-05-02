@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { Prisma, User } from '@prisma/client';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import * as bcrypt from 'bcrypt'; // Не забудь импорт!
 
 @Injectable()
 export class UsersService {
@@ -47,12 +48,16 @@ export class UsersService {
     return user as User | null;
   }
 
-  async create(data: Prisma.UserCreateInput | CreateUserDto): Promise<User> {
+  async create(data: CreateUserDto): Promise<User> {
+    // 1. Хешируем пароль перед созданием
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(data.password, saltRounds);
+
     const newUser = await this.prisma.user.create({
       data: {
-        login: data.login!, // "!" говорит TS, что мы уверены, что тут не null
+        login: data.login,
         email: data.email,
-        password: data.password,
+        password: hashedPassword, // Записываем хеш вместо текста
         avatarUrl: data.avatarUrl,
         role: data.role ?? 'CLIENT',
       },
@@ -61,15 +66,17 @@ export class UsersService {
   }
 
   async update(id: string, data: UpdateUserDto): Promise<User> {
+    const updateData: any = { ...data };
+
+    // 2. Если в данных для обновления есть пароль, его тоже нужно захешировать
+    if (data.password) {
+      const saltRounds = 10;
+      updateData.password = await bcrypt.hash(data.password, saltRounds);
+    }
+
     const updatedUser = await this.prisma.user.update({
       where: { id },
-      data: {
-        ...(data.login !== undefined && { login: data.login }),
-        ...(data.email !== undefined && { email: data.email }),
-        ...(data.password !== undefined && { password: data.password }),
-        ...(data.avatarUrl !== undefined && { avatarUrl: data.avatarUrl }),
-        ...(data.role !== undefined && { role: data.role }),
-      },
+      data: updateData,
     });
     return updatedUser as User;
   }
